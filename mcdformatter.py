@@ -2,6 +2,10 @@ import sys
 import click
 import numpy
 import imageio
+import textwrap
+
+INVERT = False
+OUTPUT_MAX_WIDTH = 120
 
 @click.command()
 @click.option(
@@ -35,9 +39,8 @@ def mcd_formatter(pack, input_filename, output_filename, width):
 def pack_bytestring(input_filename, output_filename):
   if input_filename:
     # Make an array representing individual bits
-    rawdata = imageio.imread(input_filename)
-    bitdata = numpy.vectorize(byteToInvertedBit)(rawdata)
-
+    rawdata = imageio.imread(input_filename, pilmode="L")
+    bitdata = numpy.vectorize(byteToBit)(rawdata)
     # Pack bit data into bytes
     bytedata = numpy.zeros([(bitdata.shape[0] * bitdata.shape[1]) // 8], dtype=numpy.uint8)
     for i in range(bitdata.shape[0]):
@@ -46,7 +49,7 @@ def pack_bytestring(input_filename, output_filename):
         bytedata[index] = bytedata[index] | (bitdata[i, j] << (i % 8))
 
     # Format as comma-separated string (makes it easy for pasting into an array definition)
-    output_string = ''.join('0x{:02X}, '.format(a) for a in bytedata)[:-2]
+    output_string = textwrap.fill(''.join('0x{:02X}, '.format(a) for a in bytedata)[:-2], width=OUTPUT_MAX_WIDTH)
     if output_filename:
       # Write out to file
       with open(output_filename, mode='w') as outfile:
@@ -58,11 +61,11 @@ def pack_bytestring(input_filename, output_filename):
   else:
     click.echo('Must provide --input_filename argument. Type --help for more information.')
 
-def byteToInvertedBit(x):
-  if x == 0:
-    return 1
+def byteToBit(x):
+  if INVERT:
+    return 1 if x == 0 else 0
   else:
-    return 0
+    return 0 if x == 0 else 1
 
 def unpack_bytestring(input_filename, output_filename, width):
   if input_filename and output_filename:
